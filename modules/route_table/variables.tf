@@ -1,0 +1,17 @@
+variable "vpc_id" {
+  type = string
+}
+
+variable "name" {
+  type = string
+}
+
+variable "gateway_id" {
+  type    = string
+  default = null
+}
+
+variable "nat_gateway_id" {
+  type    = string
+  default = null
+}
