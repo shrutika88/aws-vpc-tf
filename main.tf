@@ -88,24 +88,12 @@ module "ec2_sg" {
       cidr_blocks = ["0.0.0.0/0"]
     },
     {
-      from_port   = 80
-      to_port     = 80
-      protocol    = "tcp"
-      cidr_blocks = ["0.0.0.0/0"]
+      from_port       = 80
+      to_port         = 80
+      protocol        = "tcp"
+      security_groups = [module.alb_sg.my_sg_id]
     }
   ]
-}
-
-module "my_wed_ec2" {
-  source = "./modules/compute"
-
-  ami                 = "ami-06067086cf86c58e6"
-  subnet_id           = module.public_subnet_1.subnet_id
-  instance_type       = "t3.micro"
-  security_group_id   = module.ec2_sg.my_sg_id
-  name                = "my_web_ec2"
-  key_name            = "tf-3-tier-demo"
-  associate_public_ip = true
 }
 
 module "nat_eip" {
@@ -193,18 +181,44 @@ module "my_target_group" {
   vpc_id = module.network.vpc_id
 }
 
-module "my_tg_attachment" {
-  source = "./modules/target_group_attachment"
-
-  target_group_arn = module.my_target_group.target_group_arn
-  target_id        = module.my_wed_ec2.instance_id
-  port             = 80
-}
-
 module "my_listener" {
   source = "./modules/listener"
 
   load_balancer_arn = module.my_alb.alb_arn
   target_group_arn  = module.my_target_group.target_group_arn
 }
+
+
+module "launch_template" {
+  source = "./modules/launch_template"
+
+  name              = "tier-3-EC2_launch_template"
+  ami               = "ami-06067086cf86c58e6"
+  instance_type     = "t3.micro"
+  key_name          = "tf-3-tier-demo"
+  security_group_id = module.ec2_sg.my_sg_id
+  user_data         = file("${path.module}/scripts/user_data.sh")
+}
+
+module "my_asg" {
+  source = "./modules/auto_scaling_group"
+
+  name = "web-asg"
+
+  launch_template_id = module.launch_template.launch_template_id
+
+subnet_ids = [
+  module.private_subnet_1.subnet_id,
+  module.private_subnet_2.subnet_id
+]
+
+  target_group_arns = [
+    module.my_target_group.target_group_arn
+  ]
+
+  desired_capacity = 2
+  min_size         = 2
+  max_size         = 4
+}
+
 

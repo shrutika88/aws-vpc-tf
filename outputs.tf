@@ -26,14 +26,6 @@ output "security_group_id" {
   value = module.ec2_sg.my_sg_id
 }
 
-output "my_ec2_instance_id" {
-  value = module.my_wed_ec2.my_ec2_id
-}
-
-output "my_ec2_instance_pulic_ip" {
-  value = module.my_wed_ec2.public_ip
-}
-
 output "my_elastic_ip" {
   value = module.nat_eip.public_ip
 }
@@ -48,4 +40,12 @@ output "my_nat_gw_id" {
 
 output "dns_name" {
   value = module.my_alb.alb_dns_name
+}
+
+output "launch_template_id" {
+  value = module.launch_template.launch_template_id
+}
+
+output "asg_name" {
+  value = module.my_asg.asg_name
 }
