@@ -82,10 +82,10 @@ module "ec2_sg" {
 
   ingress_rules = [
     {
-      from_port   = 22
-      to_port     = 22
-      protocol    = "tcp"
-      cidr_blocks = ["0.0.0.0/0"]
+  from_port       = 22
+  to_port         = 22
+  protocol        = "tcp"
+  security_groups = [module.bastion_sg.my_sg_id]
     },
     {
       from_port       = 80
@@ -197,7 +197,16 @@ module "launch_template" {
   instance_type     = "t3.micro"
   key_name          = "tf-3-tier-demo"
   security_group_id = module.ec2_sg.my_sg_id
-  user_data         = file("${path.module}/scripts/user_data.sh")
+  # user_data         = file("${path.module}/scripts/user_data.sh")
+  user_data = templatefile(
+  "${path.module}/scripts/user_data.sh.tpl",
+  {
+    db_endpoint = module.my_rds.address
+    db_name     = "appdb"
+    db_user     = "admin"
+    db_password = "YOUR_PASSWORD"
+  }
+)
 }
 
 module "my_asg" {
@@ -207,10 +216,10 @@ module "my_asg" {
 
   launch_template_id = module.launch_template.launch_template_id
 
-subnet_ids = [
-  module.private_subnet_1.subnet_id,
-  module.private_subnet_2.subnet_id
-]
+  subnet_ids = [
+    module.private_subnet_1.subnet_id,
+    module.private_subnet_2.subnet_id
+  ]
 
   target_group_arns = [
     module.my_target_group.target_group_arn
@@ -221,4 +230,77 @@ subnet_ids = [
   max_size         = 4
 }
 
+module "db_subnet_group" {
+  source = "./modules/db_subnet_group"
 
+  subnet_ids = [module.private_subnet_1.subnet_id,
+  module.private_subnet_2.subnet_id]
+  name = "my_db_subnet_group"
+}
+
+module "db_sg" {
+  source = "./modules/security_group"
+
+  name   = "db-security-group"
+  vpc_id = module.network.vpc_id
+
+  ingress_rules = [
+    {
+      from_port   = 3306
+      to_port     = 3306
+      protocol    = "tcp"
+      security_groups = [module.ec2_sg.my_sg_id]
+    }
+  ]
+}
+
+module "my_rds" {
+  source = "./modules/rds"
+
+  identifier          = "mydb"
+  engine              = "mysql"
+  engine_version      = "8.0"
+  instance_class      = "db.t3.micro"
+  allocated_storage   = 20
+
+  db_name             = "appdb"
+  username            = var.db_username
+  password            = var.db_password
+
+  db_subnet_group_name = module.db_subnet_group.db_subnet_group_name
+  security_group_id    = module.db_sg.my_sg_id
+}
+
+
+module "bastion_sg" {
+  source = "./modules/security_group"
+
+  name   = "bastion-security-group"
+  vpc_id = module.network.vpc_id
+
+  ingress_rules = [
+    {
+      from_port   = 22
+      to_port     = 22
+      protocol    = "tcp"
+      cidr_blocks = ["0.0.0.0/0"] # We'll tighten this later.
+    }
+  ]
+}
+
+module "bastion" {
+  source = "./modules/compute"
+
+  ami                 = "ami-06067086cf86c58e6"
+  instance_type       = "t3.micro"
+
+  subnet_id           = module.public_subnet_1.subnet_id
+
+  security_group_id   = module.bastion_sg.my_sg_id
+
+  key_name            = "tf-3-tier-demo"
+
+  associate_public_ip = true
+
+  name = "bastion-host"
+}

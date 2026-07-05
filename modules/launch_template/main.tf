@@ -4,6 +4,7 @@ resource "aws_launch_template" "web" {
   instance_type = var.instance_type
   key_name      = var.key_name
 
+  update_default_version = true
 
   network_interfaces {
     associate_public_ip_address = false

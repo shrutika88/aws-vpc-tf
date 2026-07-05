@@ -49,3 +49,20 @@ output "launch_template_id" {
 output "asg_name" {
   value = module.my_asg.asg_name
 }
+
+
+output "endpoint" {
+  value = module.my_rds.endpoint
+}
+
+output "address" {
+  value = module.my_rds.address
+}
+
+output "port" {
+  value = module.my_rds.port
+}
+
+output "bastion_public_ip" {
+  value = module.bastion.public_ip
+}
